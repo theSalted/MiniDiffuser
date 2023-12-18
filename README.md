@@ -19,7 +19,8 @@ If you want to setup a new conda environment, download a dataset (celeba) and la
 ```
 conda env create -f environment.yml
 conda activate iadb
-python iadb.py
+python3 iadb.py
+python3 iadb_cifar10_default.py
 ```
 
 # Setup
