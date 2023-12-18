@@ -1,6 +1,8 @@
 # Project Specific
-datasets/celeba/**
-datasets/cifar10/**
+datasets/celeba/*
+!/datasets/celeba/.gitkeep
+datasets/cifar10/*
+!/datasets/cifar10/.gitkeep
 
 # Nova
 .nova
