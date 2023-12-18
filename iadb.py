@@ -37,7 +37,14 @@ def sample_iadb(model, x0, nb_step):
     return x_alpha
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+    print("Cuda is available")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+    print("MPS is available")
+
 CELEBA_FOLDER = './datasets/celeba/'
 transform = transforms.Compose([transforms.Resize(64),transforms.CenterCrop(64), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
 train_dataset = torchvision.datasets.CelebA(root=CELEBA_FOLDER, split='train',
