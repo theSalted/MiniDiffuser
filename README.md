@@ -2,8 +2,9 @@
 ### [Paper](https://arxiv.org/abs/2305.03486) | [Blog post](https://ggx-research.github.io/publication/2023/05/10/publication-iadb.html) | [2D tutorial](https://tchambon.github.io/posts/iadb-2D/)
 <br />
 
-This repository is the official implementation of IADB ([Iterative α-(de)Blending: a Minimalist Deterministic Diffusion Model](https://arxiv.org/abs/2305.03486)), published at Siggraph 2023.
+This repository is ~the official~ a implementation of IADB ([Iterative α-(de)Blending: a Minimalist Deterministic Diffusion Model](https://arxiv.org/abs/2305.03486)), published at Siggraph 2023 based on the [official implementation](https://github.com/tchambon/IADB).
 
+Modified for other dataset and to test memory optimizations on different FP config.
 
 
 ![image](imgs/teaser.png)
