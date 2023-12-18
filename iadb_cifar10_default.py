@@ -38,12 +38,12 @@ def sample_iadb(model, x0, nb_step):
 
 
 device = torch.device("cpu")
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        print("Cuda is available")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-        print("MPS is available")
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+    print("Cuda is available")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+    print("MPS is available")
         
 DATASET_FOLDER = './datasets/cifar10/'
 transform = transforms.Compose([transforms.Resize(64),transforms.CenterCrop(64), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
