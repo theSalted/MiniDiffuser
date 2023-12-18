@@ -46,11 +46,11 @@ elif torch.backends.mps.is_available():
     print("MPS is available")
 
 CELEBA_FOLDER = './datasets/celeba/'
-transform = transforms.Compose([transforms.Resize(64),transforms.CenterCrop(64), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
+transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
 train_dataset = torchvision.datasets.CelebA(root=CELEBA_FOLDER, split='train',
                                         download=True, transform=transform)
 
-dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=0, drop_last=True)
+dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
 
 model = get_model()
 model = model.to(device)
