@@ -1,6 +1,7 @@
 # IMPORTS
 # ML related
 import torch
+from torch.utils.data import dataset
 import torchvision
 from torchvision import transforms
 from diffusers import UNet2DModel
@@ -10,6 +11,7 @@ from torch.optim import Adam
 import os
 import sys
 import time
+import argparse
 from datetime import datetime
 from tqdm import tqdm
 
@@ -81,17 +83,26 @@ def find_find_torch_device():
         device = torch.device("mps")
         tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
     return device
-    
-def get_dataloader(dataset_name, dataset_folder, transform):
+
+def get_dataset(root, dataset_name, transform):
     if dataset_name == "cifar10":
-        train_dataset = torchvision.datasets.CIFAR10(root=dataset_folder, train=True, download=True, transform=transform)
-        dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
-        return dataloader
+        train_dataset = torchvision.datasets.CIFAR10(root=root, train=True, download=True, transform=transform)
+        return train_dataset
+    elif dataset_name == "celeba":
+        train_dataset = torchvision.datasets.CelebA(root=root, split='train',
+        download=True, transform=transform)
+        return train_dataset
         
     return None
+        
+def get_dataloader(dataset_name, dataset_folder, transform, batch_size):
+    train_dataset = get_dataset(root = dataset_folder, dataset_name = dataset_name, transform = transform)
+    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
+    return dataloader
     
 class MiniD:
     device = None
+    dataset_name = "cifar10"
     DATASET_FOLDER = ""
     RESULT_FOLDER = ""
     dataloader = None
@@ -100,22 +111,23 @@ class MiniD:
     x0 = None
     losses = []
     
-    def __init__(self, device):
+    def __init__(self, device, dataset_name="cifar10", batch_size=32, res=32):
         self.device = device
+        self.dataset_name = dataset_name
         # Generating a base folder name
         current_time = datetime.now()
-        model_name = current_time.strftime('%y%m%d') + '-cifar-fp32'
+        model_name = current_time.strftime('%y%m%d') + f'-{self.dataset_name}-fp32'
         base_folder = './results/' + model_name
         
         # Generate folders
-        self.DATASET_FOLDER = './datasets/cifar10/'
+        self.DATASET_FOLDER = f'./datasets/{self.dataset_name}/'
         self.RESULT_FOLDER = generate_unique_folder_name(base_folder)
         
         # Compose images
-        transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
+        transform = transforms.Compose([transforms.Resize(res),transforms.CenterCrop(res), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
         # Load datasets
        
-        self.dataloader = get_dataloader("cifar10", self.DATASET_FOLDER, transform)
+        self.dataloader = get_dataloader(f'{self.dataset_name}', self.DATASET_FOLDER, transform, batch_size)
         
         m = get_model()
         self.model = m.to(self.device)
@@ -124,7 +136,7 @@ class MiniD:
         
     def start(self):
         nb_iter = 0
-        tqdm.write(f'{bcolors.BOLD}Start training{bcolors.ENDC}')
+        tqdm.write(f'{bcolors.BOLD}Start training on {self.dataset_name}{bcolors.ENDC}')
         for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
             for i, data in enumerate(tqdm(self.dataloader, desc=f'Iter (Epoch {current_epoch})', unit="iter", colour="blue")):
                 x1 = (data[0].to(self.device)*2)-1
@@ -163,8 +175,28 @@ class MiniD:
         tqdm.write(f'{bcolors.OKCYAN}Saving losses record...{bcolors.ENDC}')
         with open(f'{self.RESULT_FOLDER}losses.txt','w') as tfile:
             tfile.write('\n'.join(self.losses))
+
+
+# ARGS
+parser = argparse.ArgumentParser(description='MINI DIFFUSER - A light diffusion model based on IADB')
+
+parser.add_argument('--b', type=int,
+                    help='batch size of dataset')
+
+parser.add_argument('--d', type=str,
+                    help='dataset to train on.')
+
+parser.add_argument('--r', type=int,
+                    help='resolution resize to.')
+                    
+args = parser.parse_args()
+
 print(f'{bcolors.HEADER}MINI DIFFUSER{bcolors.ENDC}')
-minid_model = MiniD(device=find_find_torch_device())
+device = find_find_torch_device()
+dataset_name = args.d or "cifar10"
+batch_size = args.b or 32
+res = args.r or 32
+minid_model = MiniD(device=device, dataset_name=dataset_name, batch_size=batch_size, res=res)
 
 try:
     minid_model.start()
