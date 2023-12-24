@@ -1,6 +1,6 @@
 # MiniDiffuser
 
-MiniDiffuser is a mini diffusion model based on IADB (See [paper](https://arxiv.org/abs/2305.03486), [blog post](https://ggx-research.github.io/publication/2023/05/10/publication-iadb.html) and, [2D tutorial](https://tchambon.github.io/posts/iadb-2Da/)).
+MiniDiffuser is a mini diffusion model based on [IADB](https://github.com/tchambon/IADB) (See [paper](https://arxiv.org/abs/2305.03486), [blog post](https://ggx-research.github.io/publication/2023/05/10/publication-iadb.html) and, [2D tutorial](https://tchambon.github.io/posts/iadb-2Da/)).
 <br />
 
 # Quick start
