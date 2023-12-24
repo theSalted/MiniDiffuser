@@ -3,6 +3,8 @@ datasets/celeba/*
 !/datasets/celeba/.gitkeep
 datasets/cifar10/*
 !/datasets/cifar10/.gitkeep
+results/*
+!/results/.gitkeep
 
 # Nova
 .nova
