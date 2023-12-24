@@ -29,15 +29,15 @@ def generate_folder(folder):
 
 # Class for print colors
 class bcolors:
-        HEADER = '\033[95m'
-        OKBLUE = '\033[94m'
-        OKCYAN = '\033[96m'
-        OKGREEN = '\033[92m'
-        WARNING = '\033[93m'
-        FAIL = '\033[91m'
-        ENDC = '\033[0m'
-        BOLD = '\033[1m'
-        UNDERLINE = '\033[4m'
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 # MODELS
 def get_model():
@@ -72,77 +72,85 @@ def iadb(model, x0, nb_step):
 
     return x_alpha
 
-tqdm.write(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
-device = torch.device("cpu")
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    tqdm.write(f'{bcolors.OKGREEN}Cuda is available{bcolors.ENDC}')
-elif torch.backends.mps.is_available():
-    device = torch.device("mps")
-    tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
-
-# Generating a base folder name
-current_time = datetime.now()
-model_name = current_time.strftime('%y%m%d') + '-cifar-fp32'
-base_folder = './results/' + model_name
-
-# Generate folders
-DATASET_FOLDER = './datasets/cifar10/'
-RESULT_FOLDER = generate_unique_folder_name(base_folder)
-
-# Compose images
-transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
-
-# Load datasets
-train_dataset = torchvision.datasets.CIFAR10(root=DATASET_FOLDER, train=True,
-                                        download=True, transform=transform)
-
-dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
-
-model = get_model()
-model = model.to(device)
-
-loss = tqdm(desc="Loss", bar_format="{desc}: {n_fmt}", position=2)
-
-optimizer = Adam(model.parameters(), lr=1e-4)
+class MiniD:
+    device = torch.device("cpu")
+    DATASET_FOLDER = ""
+    RESULT_FOLDER = ""
+    dataloader = None
+    model = None
+    optimizer = None
+    loss = tqdm(desc="Loss", bar_format="{desc}: {n_fmt}", position=2)
     
-# MAIN
-def main():
-    nb_iter = 0
-    tqdm.write(f'{bcolors.BOLD}Start training{bcolors.ENDC}')
-    for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
-        for i, data in enumerate(tqdm(dataloader, desc=f'Iter (Epoch {current_epoch+1})', unit="iter", colour="blue")):
-            x1 = (data[0].to(device)*2)-1
-            x0 = torch.randn_like(x1)
-            bs = x0.shape[0]
-    
-            alpha = torch.rand(bs, device=device)
-            x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * x0
+    def __init__(self):
+        tqdm.write(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda:0")
+            tqdm.write(f'{bcolors.OKGREEN}Cuda is available{bcolors.ENDC}')
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+            tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
             
-            d = model(x_alpha, alpha)['sample']
-            
-            l = torch.sum((d - (x1-x0))**2)
-    
-            optimizer.zero_grad()
-            l.backward()
-            
-            # update loss
-            loss.update(int(float(f'{l}')))
-            
-            optimizer.step()
-            nb_iter += 1
-    
-            if nb_iter % 200 == 0:
-                with torch.no_grad():
-                    generate_folder(RESULT_FOLDER)
-                    tqdm.write(f'{bcolors.OKCYAN}Save weights and preview #{nb_iter} (loss {loss}){bcolors.ENDC}')
-                    sample = (iadb(model, x0, nb_step=128) * 0.5) + 0.5
-                    torchvision.utils.save_image(sample, f'{RESULT_FOLDER}preview_{str(nb_iter).zfill(8)}.png')
-                    torch.save(model.state_dict(), f'{RESULT_FOLDER}weights.ckpt')
+        # Generating a base folder name
+        current_time = datetime.now()
+        model_name = current_time.strftime('%y%m%d') + '-cifar-fp32'
+        base_folder = './results/' + model_name
+        
+        # Generate folders
+        self.DATASET_FOLDER = './datasets/cifar10/'
+        self.RESULT_FOLDER = generate_unique_folder_name(base_folder)
+        
+        # Compose images
+        transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
+        # Load datasets
+        train_dataset = torchvision.datasets.CIFAR10(root=self.DATASET_FOLDER, train=True,
+                                                download=True, transform=transform)
+        
+        self.dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
+        
+        m = get_model()
+        self.model = m.to(self.device)
+        
+        self.optimizer = Adam(self.model.parameters(), lr=1e-4)
+        
+    def start(self):
+        nb_iter = 0
+        tqdm.write(f'{bcolors.BOLD}Start training{bcolors.ENDC}')
+        for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
+            for i, data in enumerate(tqdm(self.dataloader, desc=f'Iter (Epoch {current_epoch+1})', unit="iter", colour="blue")):
+                x1 = (data[0].to(self.device)*2)-1
+                x0 = torch.randn_like(x1)
+                bs = x0.shape[0]
+        
+                alpha = torch.rand(bs, device=self.device)
+                x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * x0
+                
+                d = self.model(x_alpha, alpha)['sample']
+                
+                l = torch.sum((d - (x1-x0))**2)
+        
+                self.optimizer.zero_grad()
+                l.backward()
+                tqdm.write(f'{l}')
+                # update loss
+                
+                self.loss.update(int(float(f'{l}')))
+                
+                self.optimizer.step()
+                nb_iter += 1
+        
+                if nb_iter % 200 == 0:
+                    with torch.no_grad():
+                        generate_folder(self.RESULT_FOLDER)
+                        tqdm.write(f'{bcolors.OKCYAN}Save weights and preview #{nb_iter} (loss {self.loss}){bcolors.ENDC}')
+                        sample = (iadb(self.model, x0, nb_step=128) * 0.5) + 0.5
+                        torchvision.utils.save_image(sample, f'{self.RESULT_FOLDER}preview_{str(nb_iter).zfill(8)}.png')
+                        torch.save(self.model.state_dict(), f'{self.RESULT_FOLDER}weights.ckpt')
+
+minid_model = MiniD()
 
 try:
-    main()
+    minid_model.start()
 except KeyboardInterrupt:
-    loss.close()
+    minid_model.loss.close()
     tqdm.write(f'{bcolors.WARNING}Model Interrupted (not saved){bcolors.ENDC}')
     sys.exit()
