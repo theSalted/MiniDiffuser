@@ -72,24 +72,36 @@ def iadb(model, x0, nb_step):
 
     return x_alpha
 
-class MiniD:
+def find_find_torch_device():
     device = torch.device("cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        tqdm.write(f'{bcolors.OKGREEN}Cuda is available{bcolors.ENDC}')
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+        tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
+    return device
+    
+def get_dataloader(dataset_name, dataset_folder, transform):
+    if dataset_name == "cifar10":
+        train_dataset = torchvision.datasets.CIFAR10(root=dataset_folder, train=True, download=True, transform=transform)
+        dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
+        return dataloader
+        
+    return None
+    
+class MiniD:
+    device = None
     DATASET_FOLDER = ""
     RESULT_FOLDER = ""
     dataloader = None
     model = None
     optimizer = None
-    loss = tqdm(desc="Loss", bar_format="{desc}: {n_fmt}", position=2)
+    x0 = None
+    losses = []
     
-    def __init__(self):
-        tqdm.write(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
-        if torch.cuda.is_available():
-            self.device = torch.device("cuda:0")
-            tqdm.write(f'{bcolors.OKGREEN}Cuda is available{bcolors.ENDC}')
-        elif torch.backends.mps.is_available():
-            self.device = torch.device("mps")
-            tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
-            
+    def __init__(self, device):
+        self.device = device
         # Generating a base folder name
         current_time = datetime.now()
         model_name = current_time.strftime('%y%m%d') + '-cifar-fp32'
@@ -102,10 +114,8 @@ class MiniD:
         # Compose images
         transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
         # Load datasets
-        train_dataset = torchvision.datasets.CIFAR10(root=self.DATASET_FOLDER, train=True,
-                                                download=True, transform=transform)
-        
-        self.dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
+       
+        self.dataloader = get_dataloader("cifar10", self.DATASET_FOLDER, transform)
         
         m = get_model()
         self.model = m.to(self.device)
@@ -116,41 +126,46 @@ class MiniD:
         nb_iter = 0
         tqdm.write(f'{bcolors.BOLD}Start training{bcolors.ENDC}')
         for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
-            for i, data in enumerate(tqdm(self.dataloader, desc=f'Iter (Epoch {current_epoch+1})', unit="iter", colour="blue")):
+            for i, data in enumerate(tqdm(self.dataloader, desc=f'Iter (Epoch {current_epoch})', unit="iter", colour="blue")):
                 x1 = (data[0].to(self.device)*2)-1
-                x0 = torch.randn_like(x1)
-                bs = x0.shape[0]
+                self.x0 = torch.randn_like(x1)
+                bs = self.x0.shape[0]
         
                 alpha = torch.rand(bs, device=self.device)
-                x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * x0
+                x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * self.x0
                 
                 d = self.model(x_alpha, alpha)['sample']
                 
-                l = torch.sum((d - (x1-x0))**2)
+                l = torch.sum((d - (x1-self.x0))**2)
         
                 self.optimizer.zero_grad()
                 l.backward()
-                tqdm.write(f'{l}')
-                # update loss
                 
-                self.loss.update(int(float(f'{l}')))
+                self.losses.append(f'{l}')
                 
                 self.optimizer.step()
                 nb_iter += 1
         
                 if nb_iter % 200 == 0:
                     with torch.no_grad():
-                        generate_folder(self.RESULT_FOLDER)
-                        tqdm.write(f'{bcolors.OKCYAN}Save weights and preview #{nb_iter} (loss {self.loss}){bcolors.ENDC}')
-                        sample = (iadb(self.model, x0, nb_step=128) * 0.5) + 0.5
-                        torchvision.utils.save_image(sample, f'{self.RESULT_FOLDER}preview_{str(nb_iter).zfill(8)}.png')
-                        torch.save(self.model.state_dict(), f'{self.RESULT_FOLDER}weights.ckpt')
-
-minid_model = MiniD()
+                        self.save(nb_iter)
+    def save(self, name):
+        generate_folder(self.RESULT_FOLDER)
+        message = f'{bcolors.OKCYAN}Saving weights and preview...{bcolors.ENDC}'
+        if 'l' in locals():
+            message = f'{bcolors.OKCYAN}Save weights and preview #{name} (loss {l}){bcolors.ENDC}'
+        tqdm.write(message)
+        sample = (iadb(self.model, self.x0, nb_step=128) * 0.5) + 0.5
+        torchvision.utils.save_image(sample, f'{self.RESULT_FOLDER}preview_{str(name).zfill(8)}.png')
+        torch.save(self.model.state_dict(), f'{self.RESULT_FOLDER}weights.ckpt')
+        
+        
+print(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
+minid_model = MiniD(device=find_find_torch_device())
 
 try:
     minid_model.start()
 except KeyboardInterrupt:
-    minid_model.loss.close()
-    tqdm.write(f'{bcolors.WARNING}Model Interrupted (not saved){bcolors.ENDC}')
+    tqdm.write(f'{bcolors.WARNING}Model Interrupted{bcolors.ENDC}')
+    minid_model.save("final")
     sys.exit()
