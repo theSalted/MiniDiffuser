@@ -8,6 +8,7 @@ from torch.optim import Adam
 
 # Utilities
 import os
+import sys
 from datetime import datetime
 from tqdm import tqdm
 
@@ -70,62 +71,70 @@ def iadb(model, x0, nb_step):
 
     return x_alpha
 
-# MAIN]=
-tqdm.write(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
-device = torch.device("cpu")
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")
-    tqdm.write(f'{bcolors.OKGREEN}Cuda is available{bcolors.ENDC}')
-elif torch.backends.mps.is_available():
-    device = torch.device("mps")
-    tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
+# MAIN
+def main():
+    tqdm.write(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
+    device = torch.device("cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        tqdm.write(f'{bcolors.OKGREEN}Cuda is available{bcolors.ENDC}')
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+        tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
+    
+    # Generating a base folder name
+    current_time = datetime.now()
+    model_name = current_time.strftime('%y%m%d') + '-cifar-fp32'
+    base_folder = './results/' + model_name
+    
+    # Generate folders
+    DATASET_FOLDER = './datasets/cifar10/'
+    RESULT_FOLDER = generate_unique_folder_name(base_folder)
+    
+    # Compose images
+    transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
+    
+    # Load datasets
+    train_dataset = torchvision.datasets.CIFAR10(root=DATASET_FOLDER, train=True,
+                                            download=True, transform=transform)
+    
+    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
+    
+    model = get_model()
+    model = model.to(device)
+    
+    optimizer = Adam(model.parameters(), lr=1e-4)
+    nb_iter = 0
+    
+    tqdm.write(f'{bcolors.BOLD}Start training{bcolors.ENDC}')
+    for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
+        for i, data in enumerate(tqdm(dataloader, desc=f'Iter (Epoch {current_epoch+1})', unit="iter", colour="blue")):
+            x1 = (data[0].to(device)*2)-1
+            x0 = torch.randn_like(x1)
+            bs = x0.shape[0]
+    
+            alpha = torch.rand(bs, device=device)
+            x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * x0
+            
+            d = model(x_alpha, alpha)['sample']
+            
+            loss = torch.sum((d - (x1-x0))**2)
+    
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            nb_iter += 1
+    
+            if nb_iter % 200 == 0:
+                with torch.no_grad():
+                    generate_folder(RESULT_FOLDER)
+                    tqdm.write(f'{bcolors.OKCYAN}Save weights and preview #{nb_iter} (loss {loss}){bcolors.ENDC}')
+                    sample = (iadb(model, x0, nb_step=128) * 0.5) + 0.5
+                    torchvision.utils.save_image(sample, f'{RESULT_FOLDER}preview_{str(nb_iter).zfill(8)}.png')
+                    torch.save(model.state_dict(), f'{RESULT_FOLDER}weights.ckpt')
 
-# Generating a base folder name
-current_time = datetime.now()
-model_name = current_time.strftime('%y%m%d') + '-cifar-fp32'
-base_folder = './results/' + model_name
-
-# Generate folders
-DATASET_FOLDER = './datasets/cifar10/'
-RESULT_FOLDER = generate_unique_folder_name(base_folder)
-
-# Compose images
-transform = transforms.Compose([transforms.Resize(32),transforms.CenterCrop(32), transforms.RandomHorizontalFlip(0.5),transforms.ToTensor()])
-
-# Load datasets
-train_dataset = torchvision.datasets.CIFAR10(root=DATASET_FOLDER, train=True,
-                                        download=True, transform=transform)
-
-dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0, drop_last=True)
-
-model = get_model()
-model = model.to(device)
-
-optimizer = Adam(model.parameters(), lr=1e-4)
-nb_iter = 0
-
-tqdm.write(f'{bcolors.BOLD}Start training{bcolors.ENDC}')
-for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
-    for i, data in enumerate(tqdm(dataloader, desc=f'Iter (Epoch {current_epoch+1})', unit="iter", colour="blue")):
-        x1 = (data[0].to(device)*2)-1
-        x0 = torch.randn_like(x1)
-        bs = x0.shape[0]
-
-        alpha = torch.rand(bs, device=device)
-        x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * x0
-        
-        d = model(x_alpha, alpha)['sample']
-        loss = torch.sum((d - (x1-x0))**2)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        nb_iter += 1
-
-        if nb_iter % 200 == 0:
-            with torch.no_grad():
-                generate_folder(RESULT_FOLDER)
-                tqdm.write('\033[94m'+f'Save export {nb_iter} - loss {loss}')
-                sample = (iadb(model, x0, nb_step=128) * 0.5) + 0.5
-                torchvision.utils.save_image(sample, f'{RESULT_FOLDER}preview_{str(nb_iter).zfill(8)}.png')
-                torch.save(model.state_dict(), f'{RESULT_FOLDER}weights.ckpt')
+try:
+    main()
+except KeyboardInterrupt:
+    tqdm.write(f'{bcolors.WARNING}Model Interrupted (not saved){bcolors.ENDC}')
+    sys.exit()
