@@ -148,19 +148,22 @@ class MiniD:
         
                 if nb_iter % 200 == 0:
                     with torch.no_grad():
-                        self.save(nb_iter)
-    def save(self, name):
+                        self.save(nb_iter, l=l)
+    def save(self, name, l=None):
         generate_folder(self.RESULT_FOLDER)
         message = f'{bcolors.OKCYAN}Saving weights and preview...{bcolors.ENDC}'
-        if 'l' in locals():
+        if l != None:
             message = f'{bcolors.OKCYAN}Save weights and preview #{name} (loss {l}){bcolors.ENDC}'
         tqdm.write(message)
         sample = (iadb(self.model, self.x0, nb_step=128) * 0.5) + 0.5
         torchvision.utils.save_image(sample, f'{self.RESULT_FOLDER}preview_{str(name).zfill(8)}.png')
         torch.save(self.model.state_dict(), f'{self.RESULT_FOLDER}weights.ckpt')
         
-        
-print(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
+    def save_losses(self):
+        tqdm.write(f'{bcolors.OKCYAN}Saving losses record...{bcolors.ENDC}')
+        with open(f'{self.RESULT_FOLDER}losses.txt','w') as tfile:
+            tfile.write('\n'.join(self.losses))
+print(f'{bcolors.HEADER}MINI DIFFUSER{bcolors.ENDC}')
 minid_model = MiniD(device=find_find_torch_device())
 
 try:
@@ -168,4 +171,5 @@ try:
 except KeyboardInterrupt:
     tqdm.write(f'{bcolors.WARNING}Model Interrupted{bcolors.ENDC}')
     minid_model.save("final")
+    minid_model.save_losses()
     sys.exit()
