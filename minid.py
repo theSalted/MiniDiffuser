@@ -184,10 +184,10 @@ parser.add_argument('--b', type=int,
                     help='batch size of dataset')
 
 parser.add_argument('--d', type=str,
-                    help='dataset to train on.')
+                    help='dataset to train on')
 
 parser.add_argument('--r', type=int,
-                    help='resolution resize to.')
+                    help='resolution resize to')
                     
 args = parser.parse_args()
 
