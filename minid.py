@@ -72,8 +72,6 @@ def iadb(model, x0, nb_step):
 
     return x_alpha
 
-class MiniD:
-    
 tqdm.write(f'{bcolors.HEADER}Mini Diffuser{bcolors.ENDC}')
 device = torch.device("cpu")
 if torch.cuda.is_available():
