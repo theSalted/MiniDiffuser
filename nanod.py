@@ -1,3 +1,7 @@
+"""
+Nano diffuser is the most skim down version of mini diffuser. Almsot entirely based on IADB's offical implementation with some light modifications.
+"""
+
 import torch
 import torchvision
 from torchvision import transforms
@@ -25,7 +29,7 @@ def get_model():
     return UNet2DModel(block_out_channels=block_out_channels,out_channels=3, in_channels=3, up_block_types=up_block_types, down_block_types=down_block_types, add_attention=True)
 
 @torch.no_grad()
-def sample_iadb(model, x0, nb_step):
+def iadb(model, x0, nb_step):
     x_alpha = x0
     for t in range(nb_step):
         alpha_start = (t/nb_step)
@@ -78,6 +82,6 @@ for current_epoch in range(100):
         if nb_iter % 200 == 0:
             with torch.no_grad():
                 print(f'Save export {nb_iter}')
-                sample = (sample_iadb(model, x0, nb_step=128) * 0.5) + 0.5
+                sample = (iadb(model, x0, nb_step=128) * 0.5) + 0.5
                 torchvision.utils.save_image(sample, f'export_{str(nb_iter).zfill(8)}.png')
                 torch.save(model.state_dict(), f'celeba.ckpt')
