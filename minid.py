@@ -14,6 +14,7 @@ import time
 import argparse
 from datetime import datetime
 from tqdm import tqdm
+import asciichartpy
 
 # UTILITIES
 def generate_unique_folder_name(base_folder):
@@ -61,7 +62,11 @@ def get_model():
         "UpBlock2D"  
     )
     return UNet2DModel(block_out_channels=block_out_channels,out_channels=3, in_channels=3, up_block_types=up_block_types, down_block_types=down_block_types, add_attention=True)
-
+def plot_data(data, title):
+    plot = asciichartpy.plot(data, {'height': 10, 'padding': '      ', 'offset': 5})
+    tqdm.write(f'{bcolors.HEADER}{title}{bcolors.ENDC}')
+    tqdm.write(plot)
+# MODELS
 @torch.no_grad()
 def iadb(model, x0, nb_step):
     x_alpha = x0
@@ -160,11 +165,10 @@ class MiniD:
                 self.optimizer.zero_grad()
                 l.backward()
                 
-                self.losses.append(f'{l}')
+                self.losses.append(float(f'{l}'))
                 
                 self.optimizer.step()
                 nb_iter += 1
-        
                 if nb_iter % 200 == 0:
                     with torch.no_grad():
                         self.save(nb_iter, l=l)
@@ -181,10 +185,11 @@ class MiniD:
     def save_losses(self):
         tqdm.write(f'{bcolors.OKCYAN}Saving losses record...{bcolors.ENDC}')
         with open(f'{self.RESULT_FOLDER}losses.txt','w') as tfile:
-            tfile.write('\n'.join(self.losses))
+            tfile.write('\n'.join(str(self.losses)))
+        plot_data(self.losses, "Losses")
 
-
-# ARGS
+# MAIN
+# args
 parser = argparse.ArgumentParser(description='MINI DIFFUSER - A light diffusion model based on IADB')
 
 parser.add_argument('--b', type=int,
@@ -211,6 +216,7 @@ minid_model = MiniD(device=device, dataset_name=dataset_name, batch_size=batch_s
 try:
     minid_model.start()
 except KeyboardInterrupt:
+    # crt+c to save and exit
     tqdm.write(f'{bcolors.WARNING}Model Interrupted{bcolors.ENDC}')
     minid_model.save("final")
     minid_model.save_losses()
