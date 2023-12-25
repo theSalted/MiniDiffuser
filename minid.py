@@ -62,10 +62,32 @@ def get_model():
         "UpBlock2D"  
     )
     return UNet2DModel(block_out_channels=block_out_channels,out_channels=3, in_channels=3, up_block_types=up_block_types, down_block_types=down_block_types, add_attention=True)
+    
+def convert_floats_to_strings(float_list):
+    return [str(f) for f in float_list]
+    
 def plot_data(data, title):
-    plot = asciichartpy.plot(data, {'height': 10, 'padding': '      ', 'offset': 5})
+    terminal_width = os.get_terminal_size().columns
+    target_length = max(50, terminal_width - 20)
+    downsampled_data = downsample_list(data, target_length)
+    plot = asciichartpy.plot(downsampled_data, {'height': 10, 'padding': '      ', 'offset': 5})
     tqdm.write(f'{bcolors.HEADER}{title}{bcolors.ENDC}')
     tqdm.write(plot)
+    
+def downsample_list(data, target_length):
+    if len(data) <= target_length:
+        return data
+    
+    segment_length = len(data) // target_length
+    downsampled = []
+    
+    for i in range(0, len(data), segment_length):
+        segment = data[i:i + segment_length]
+        representative_value = sum(segment) / len(segment)
+        downsampled.append(representative_value)
+    
+    return downsampled
+    
 # MODELS
 @torch.no_grad()
 def iadb(model, x0, nb_step):
@@ -113,10 +135,11 @@ class MiniD:
     dataloader = None
     model = None
     optimizer = None
+    save_iter = 200
     x0 = None
     losses = []
     
-    def __init__(self, device, dataset_name="cifar10", batch_size=32, res=32, half=False):
+    def __init__(self, device, dataset_name="cifar10", batch_size=32, res=32, half=False, save_iter=200):
         self.device = device
         self.dataset_name = dataset_name
         # Generating a base folder name
@@ -185,8 +208,8 @@ class MiniD:
     def save_losses(self):
         tqdm.write(f'{bcolors.OKCYAN}Saving losses record...{bcolors.ENDC}')
         with open(f'{self.RESULT_FOLDER}losses.txt','w') as tfile:
-            tfile.write('\n'.join(str(self.losses)))
-        plot_data(self.losses, "Losses")
+            tfile.write('\n'.join(convert_floats_to_strings(self.losses)))
+        plot_data(self.losses, "Losses Plot - x-axis may be scaled")
 
 # MAIN
 # args
