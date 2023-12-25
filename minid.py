@@ -136,12 +136,16 @@ class MiniD:
     model = None
     optimizer = None
     save_iter = 200
+    epochs = 100
     x0 = None
     losses = []
     
-    def __init__(self, device, dataset_name="cifar10", batch_size=32, res=32, half=False, save_iter=200):
+    def __init__(self, device, dataset_name="cifar10", epochs=100, batch_size=32, res=32, half=False, save_iter=200):
         self.device = device
         self.dataset_name = dataset_name
+        self.epochs = epochs
+        self.save_iter = save_iter
+        
         # Generating a base folder name
         current_time = datetime.now()
         model_name = current_time.strftime('%y%m%d') + f'-{self.dataset_name}-fp32'
@@ -172,7 +176,7 @@ class MiniD:
     def start(self):
         nb_iter = 0
         tqdm.write(f'{bcolors.BOLD}Start training on {self.dataset_name}{bcolors.ENDC}')
-        for current_epoch in tqdm(range(100), desc='Epoch', unit="epoch", colour="green"):
+        for current_epoch in tqdm(range(self.epochs), desc='Epoch', unit="epoch", colour="green"):
             for i, data in enumerate(tqdm(self.dataloader, desc=f'Iter (Epoch {current_epoch})', unit="iter", colour="blue")):
                 x1 = (data[0].to(self.device)*2)-1
                 self.x0 = torch.randn_like(x1)
@@ -192,7 +196,7 @@ class MiniD:
                 
                 self.optimizer.step()
                 nb_iter += 1
-                if nb_iter % 200 == 0:
+                if nb_iter % self.save_iter == 0:
                     with torch.no_grad():
                         self.save(nb_iter, l=l)
     def save(self, name, l=None):
@@ -221,10 +225,16 @@ parser.add_argument('--b', type=int,
 parser.add_argument('--d', type=str,
                     help='dataset to train on')
                     
+parser.add_argument('--e', type=int,
+                    help='epoch size to train for i.e. number of the time the entire dataset is trained on')
+                    
 parser.add_argument('--fp16',default=False, action=argparse.BooleanOptionalAction, help='set memory format to to half i.e. fp16, and reduce optimizer eps to 1e-4')
 
 parser.add_argument('--r', type=int,
                     help='resolution resize to')
+                    
+parser.add_argument('--si', type=int,
+                    help='number of iters before model is next saved')
                     
 args = parser.parse_args()
 
@@ -232,9 +242,11 @@ print(f'{bcolors.HEADER}MINI DIFFUSER{bcolors.ENDC}')
 device = find_find_torch_device()
 dataset_name = args.d or "cifar10"
 batch_size = args.b or 32
+epochs = args.e or 100
 res = args.r or 32
+save_iter = args.si or 200
 half = args.fp16 or False
-minid_model = MiniD(device=device, dataset_name=dataset_name, batch_size=batch_size, res=res, half=half)
+minid_model = MiniD(device=device, dataset_name=dataset_name, epochs=epochs, batch_size=batch_size, res=res, half=half, save_iter=save_iter)
 
 try:
     minid_model.start()
@@ -243,4 +255,5 @@ except KeyboardInterrupt:
     tqdm.write(f'{bcolors.WARNING}Model Interrupted{bcolors.ENDC}')
     minid_model.save("final")
     minid_model.save_losses()
+    tqdm.write(f'{bcolors.WARNING}Results saved to: {minid_model.RESULT_FOLDER}{bcolors.ENDC}')
     sys.exit()
