@@ -111,7 +111,7 @@ class MiniD:
     x0 = None
     losses = []
     
-    def __init__(self, device, dataset_name="cifar10", batch_size=32, res=32):
+    def __init__(self, device, dataset_name="cifar10", batch_size=32, res=32, half=False):
         self.device = device
         self.dataset_name = dataset_name
         # Generating a base folder name
@@ -132,7 +132,14 @@ class MiniD:
         m = get_model()
         self.model = m.to(self.device)
         
-        self.optimizer = Adam(self.model.parameters(), lr=1e-4)
+        if half:
+            
+            self.model = self.model.half()
+            self.optimizer = Adam(self.model.parameters(), lr=1e-4, eps=1e-4)
+            tqdm.write(f'{bcolors.OKGREEN}Training at half i.e. fp16 memory format{bcolors.ENDC}')
+        else:
+            self.optimizer = Adam(self.model.parameters(), lr=1e-4)
+        
         
     def start(self):
         nb_iter = 0
@@ -185,6 +192,8 @@ parser.add_argument('--b', type=int,
 
 parser.add_argument('--d', type=str,
                     help='dataset to train on')
+                    
+parser.add_argument('--fp16',default=False, action=argparse.BooleanOptionalAction, help='set memory format to to half i.e. fp16, and reduce optimizer eps to 1e-4')
 
 parser.add_argument('--r', type=int,
                     help='resolution resize to')
@@ -196,7 +205,8 @@ device = find_find_torch_device()
 dataset_name = args.d or "cifar10"
 batch_size = args.b or 32
 res = args.r or 32
-minid_model = MiniD(device=device, dataset_name=dataset_name, batch_size=batch_size, res=res)
+half = args.fp16 or False
+minid_model = MiniD(device=device, dataset_name=dataset_name, batch_size=batch_size, res=res, half=half)
 
 try:
     minid_model.start()
