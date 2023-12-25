@@ -148,7 +148,10 @@ class MiniD:
         
         # Generating a base folder name
         current_time = datetime.now()
-        model_name = current_time.strftime('%y%m%d') + f'-{self.dataset_name}-fp32'
+        memory_mode_string = 'fp32'
+        if half:
+            memory_mode_string = 'fp16'
+        model_name = current_time.strftime('%y%m%d') + f'-{self.dataset_name}-{memory_mode_string}'
         base_folder = './results/' + model_name
         
         # Generate folders
@@ -199,6 +202,13 @@ class MiniD:
                 if nb_iter % self.save_iter == 0:
                     with torch.no_grad():
                         self.save(nb_iter, l=l)
+                        
+        # training completed                
+        tqdm.write(f'{bcolors.OKGREEN}Training Completed{bcolors.ENDC}')
+        self.save("final")
+        self.save_losses()
+        tqdm.write(f'{bcolors.OKGREEN}Results saved to: {self.RESULT_FOLDER}{bcolors.ENDC}')
+        
     def save(self, name, l=None):
         generate_folder(self.RESULT_FOLDER)
         message = f'{bcolors.OKCYAN}Saving weights and preview...{bcolors.ENDC}'
