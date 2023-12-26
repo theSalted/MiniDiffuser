@@ -139,17 +139,20 @@ class MiniD:
     epochs = 100
     x0 = None
     losses = []
+    is_half = False
     
     def __init__(self, device, dataset_name="cifar10", epochs=100, batch_size=32, res=32, half=False, save_iter=200):
         self.device = device
         self.dataset_name = dataset_name
         self.epochs = epochs
         self.save_iter = save_iter
+        self.is_half = half
         
         # Generating a base folder name
         current_time = datetime.now()
         memory_mode_string = 'fp32'
-        if half:
+        if self.is_half:
+            # modify model subfix based on memory format
             memory_mode_string = 'fp16'
         model_name = current_time.strftime('%y%m%d') + f'-{self.dataset_name}-{memory_mode_string}'
         base_folder = './results/' + model_name
@@ -167,9 +170,10 @@ class MiniD:
         m = get_model()
         self.model = m.to(self.device)
         
-        if half:
-            
+        if self.is_half:
+            # Set model percision to half if memory format is fp16
             self.model = self.model.half()
+            # Adjust optimizer eps based on memory format
             self.optimizer = Adam(self.model.parameters(), lr=1e-4, eps=1e-4)
             tqdm.write(f'{bcolors.OKGREEN}Training at half i.e. fp16 memory format{bcolors.ENDC}')
         else:
@@ -187,6 +191,10 @@ class MiniD:
         
                 alpha = torch.rand(bs, device=self.device)
                 x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * self.x0
+                
+                if self.is_half:
+                    alpha = alpha.half()
+                    x_alpha = x_alpha.half()
                 
                 d = self.model(x_alpha, alpha)['sample']
                 
