@@ -70,7 +70,11 @@ def plot_data(data, title):
     terminal_width = os.get_terminal_size().columns
     target_length = max(50, terminal_width - 20)
     downsampled_data = downsample_list(data, target_length)
-    plot = asciichartpy.plot(downsampled_data, {'height': 10, 'padding': '      ', 'offset': 5})
+    try:
+        plot = asciichartpy.plot(downsampled_data, {'height': 10, 'padding': '      ', 'offset': 5})
+    except Exception as e:
+        tqdm.write(f'{bcolors.FAIL}Encountered an error while plotting data: {e}{bcolors.ENDC}')
+        return
     tqdm.write(f'{bcolors.HEADER}{title}{bcolors.ENDC}')
     tqdm.write(plot)
     
@@ -185,16 +189,20 @@ class MiniD:
         tqdm.write(f'{bcolors.BOLD}Start training on {self.dataset_name}{bcolors.ENDC}')
         for current_epoch in tqdm(range(self.epochs), desc='Epoch', unit="epoch", colour="green"):
             for i, data in enumerate(tqdm(self.dataloader, desc=f'Iter (Epoch {current_epoch})', unit="iter", colour="blue")):
-                x1 = (data[0].to(self.device)*2)-1
-                self.x0 = torch.randn_like(x1)
-                bs = self.x0.shape[0]
-        
-                alpha = torch.rand(bs, device=self.device)
-                x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * self.x0
                 
                 if self.is_half:
-                    alpha = alpha.half()
-                    x_alpha = x_alpha.half()
+                    x1 = (data[0].to(self.device)*2)-1
+                    x1 = x1.half()
+                    self.x0 = torch.randn_like(x1, dtype=torch.half)
+                    bs = self.x0.shape[0]
+                    alpha = torch.rand(bs, device=self.device, dtype=torch.half)
+                else:
+                    x1 = (data[0].to(self.device)*2)-1
+                    self.x0 = torch.randn_like(x1)
+                    bs = self.x0.shape[0]
+                    alpha = torch.rand(bs, device=self.device)
+                    
+                x_alpha = alpha.view(-1,1,1,1) * x1 + (1-alpha).view(-1,1,1,1) * self.x0
                 
                 d = self.model(x_alpha, alpha)['sample']
                 
@@ -231,6 +239,11 @@ class MiniD:
         tqdm.write(f'{bcolors.OKCYAN}Saving losses record...{bcolors.ENDC}')
         with open(f'{self.RESULT_FOLDER}losses.txt','w') as tfile:
             tfile.write('\n'.join(convert_floats_to_strings(self.losses)))
+            
+        if self.is_half:
+            # Losses Plot is currently not supported for fp16
+            tqdm.write(f'{bcolors.WARNING}Losses Plot is currently not supported for fp16{bcolors.ENDC}')
+            return
         plot_data(self.losses, "Losses Plot - x-axis may be scaled")
 
 # MAIN
