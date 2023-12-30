@@ -43,6 +43,10 @@ To update your environment run:
 conda env update -f environment.yml
 ```
 
+### Cuda
+
+By default, our environment configuration for PyTorch supports Cuda version 12.1. Run `nvidia-smi` to see your Cuda version. And consult the [officical PyTorch website](https://pytorch.org) for optimize version. And configure `environment.yml` or install dependencies manually.
+
 ## Setup
 
 Python 3 dependencies:
