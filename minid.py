@@ -113,6 +113,8 @@ def find_find_torch_device():
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         tqdm.write(f'{bcolors.OKGREEN}MPS is available{bcolors.ENDC}')
+    else:
+        tqdm.write(f'{bcolors.WARNING}Training with CPU{bcolors.ENDC}')
     return device
 
 def get_dataset(root, dataset_name, transform):
